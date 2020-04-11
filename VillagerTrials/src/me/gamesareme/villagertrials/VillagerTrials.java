@@ -23,6 +23,19 @@ import org.bukkit.plugin.java.JavaPlugin;
  * This plugin takes away the control of zombie villages from the default game.
  * This allows 100% conversion rate, regardless of the difficulty of the game.
  * 
+ *                  .-^-.
+ *                .'=^=^='.
+ *               /=^=^=^=^=\
+ *       .-~-.  :^= HAPPY =^;
+ *     .'~~*~~'.|^ EASTER! ^|
+ *    /~~*~~~*~~\^=^=^=^=^=^:
+ *   :~*~~~*~~~*~;\.-*))`*-,/
+ *   |~~~*~~~*~~|/*  ((*   *'.
+ *   :~*~~~*~~~*|   *))  *   *\
+ *    \~~*~~~*~~| *  ((*   *  /
+ *     `.~~*~~.' \  *))  *  .'
+ *       `~~~`    '-.((*_.-'
+ *
  * 
  * @author olive
  * @date 01/04/2020
