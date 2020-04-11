@@ -1,5 +1,5 @@
 name: VillagerTrials
 main: me.gamesareme.villagertrials.VillagerTrials
 version: 2.1
-api-version: 1.15
+api-version: 2.0
 commands:
