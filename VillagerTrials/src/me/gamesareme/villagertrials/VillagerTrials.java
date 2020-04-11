@@ -2,11 +2,12 @@ package me.gamesareme.villagertrials;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
@@ -15,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -32,61 +34,58 @@ public class VillagerTrials extends JavaPlugin implements Listener {
 		ConfigurationSerialization.registerClass(VillagerDetails.class, "VillagerDetails");
 	}
 	
+	//Used to message the console
+	private Logger logger = null;
+	
 
+	/**
+	 * Run the initial configuration when the plugin first loads
+	 */
+	
+	@SuppressWarnings("unchecked")
 	@Override
 	public void onEnable() {
 		super.onEnable();
+		
+		this.logger = Bukkit.getLogger();
 	
-		this.LoadConfiguration(); //Initial Load of the Config File
+		this.LoadConfiguration(); //Create the config if it does not exist
 		Bukkit.getPluginManager().registerEvents(this, this);
 		
+		//Get the config file.
+		FileConfiguration config = this.getConfig();
 		
-		@SuppressWarnings("unchecked")
-		List<VillagerDetails> vDetails = (List<VillagerDetails>) this.getConfig().getList("zombies");
+		//Retrieve all current zombie villagers from the list
+		this.zVillagers = (List<VillagerDetails>) config.getList("zombies");
 		
-		if(vDetails == null)
-			vDetails = new ArrayList<VillagerDetails>();
+		//Handle first initiation errors.
+		if(zVillagers == null)
+			zVillagers = new ArrayList<VillagerDetails>();
 		
-		for(VillagerDetails details : vDetails) {
-			
-			List<LivingEntity> worldE = Bukkit.getWorld(details.getLocation().getWorld().getUID()).getLivingEntities();
-			
-			Boolean found = false;
-			
-			for(LivingEntity e : worldE) {
-				
-				if(!(e instanceof ZombieVillager))
-					continue;
-				
-				if(details.getLocation().distance(e.getLocation()) <= 0.5) {
-					found = true;
-					break;
-				}
-			}
-			
-			//This was not found. Remove it from the list
-			if(!found)
-				vDetails.remove(details);
-		}
-		
-		this.getConfig().set("zombies", vDetails);
-		this.zVillagers = vDetails;
-		
+		//Save the config
 		this.saveConfig();
-		this.reloadConfig();
 	}
 
+	/**
+	 * Run all end of server requirements
+	 */
 	@Override
 	public void onDisable() {
 		super.onDisable();
 		this.saveConfig();
 	}
 	
+	/**
+	 *  Method which creates a configuration file if it does not exist.
+	 */
 	private void LoadConfiguration() {
 		this.getConfig().options().copyDefaults(true);
 		this.saveConfig();
 	}
 	
+	/**
+	 *  Method for reloading the configuration file.
+	 */
 	private void ReloadConfiguration() {
 		this.reloadConfig();
 	}
@@ -114,13 +113,13 @@ public class VillagerTrials extends JavaPlugin implements Listener {
 		//Check to see if a zombie is the cause of the damage
 		if(event.getDamager() instanceof Zombie || event.getDamager() instanceof ZombieVillager)
 		{
+			//Get the villager in question
 			Villager villager = (Villager) event.getEntity();
 	
 			// Check if the villages heath goes under 0
 			if (villager.getHealth() - event.getDamage() <= 0) {
-				event.setCancelled(true);
-	
-				villager.setAI(false); // We no longer want the villager to move
+					
+				event.setCancelled(true); //Cancel the death event
 	
 				/**
 				 * Store all of the villages details
@@ -151,8 +150,11 @@ public class VillagerTrials extends JavaPlugin implements Listener {
 				newEntity.setAI(false);
 				newEntity.setCollidable(false);
 				newEntity.setGravity(false);
-				
-				
+				newEntity.setBaby(false);   //I hate this one.  No we don't want them to become a baby XD
+					
+				//Send the console a message
+				this.SendMessage("Stored villager details.");
+					
 				/**
 				 * Ensure the villager does die
 				 */
@@ -172,14 +174,17 @@ public class VillagerTrials extends JavaPlugin implements Listener {
 		//Ensure we only handle cure events
 		if (event.getSpawnReason() == SpawnReason.CURED) {
 
+			//Get the villager which just spawned
 			Villager v = (Villager) event.getEntity();
 
 			//Check to see if you villager is in the list of stored villagers
 			for (VillagerDetails vD : zVillagers) {
 
-				// We have our villager!
-				if (vD.getLocation().distance(v.getLocation()) <= 0.5) {
-
+				// Search in a 2 block radius for the villager
+				if (vD.getLocation().distance(v.getLocation()) <= 2.0) {
+					
+					this.SendMessage("Villager details restored!");
+					
 					/**
 					 * Set the details of the new villager to that of the old one
 					 */
@@ -200,10 +205,44 @@ public class VillagerTrials extends JavaPlugin implements Listener {
 				}
 
 			}
-
 		}
 	}
-
 	
+	/**
+	 *  This method checks when a zombie villager dies.
+	 *  When a zombie villager dies we do not want to continue storing it's information
+	 *  
+	 * @param event
+	 */
+	@EventHandler
+	public void onCreateDeathEvent(EntityDeathEvent event) {
+		
+		//We only care for zombie villagers
+		if(event.getEntityType() != EntityType.ZOMBIE_VILLAGER)
+			return;
+		
+		//Our villager died...  Sad
+		for(VillagerDetails details : zVillagers) {
+			if(event.getEntity().getLocation().distance(details.getLocation()) <= 2.0) {
+				
+				this.SendMessage("A zombie with stored information was just killed!!!");
+				
+				zVillagers.remove(details);
+				
+				this.getConfig().set("zombies", zVillagers);
+				this.saveConfig();
+				
+				return;
+			}
+		}
+	}
+	
+	/**
+	 * Method used to send a message to the console.
+	 * @param message
+	 */
+	public void SendMessage(String message) {
+		this.logger.info("[VillagerTrials] " + message);
+	}
 
 }
